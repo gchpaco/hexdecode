@@ -1,6 +1,6 @@
 # Hex casting decoder
 
-From an original idea by [object Object] that has since ... metastasized.
+From an original idea by https://github.com/object-Object that has since ... metastasized.
 
 Needs Lark and nbtlib; `pip install lark` and `pip install nbtlib` if you don't have it in whatever virtualenv this lives in.
 
