@@ -10,6 +10,7 @@ iota: "[" [iota ("," iota)*] "]"                -> list
     | "(" ( NUMBER "," NUMBER "," NUMBER ) ")"  -> vector
     | "HexPattern" "(" ( DIRECTION TURNS? ) ")" -> pattern
     | "NULL"                                    -> null
+    | NUMBER                                    -> literal
     | UNKNOWN                                   -> unknown
 
 TURNS: ("a"|"q"|"w"|"e"|"d")+
@@ -26,8 +27,12 @@ class ToAST(Transformer):
         return hexast.Vector(args[0], args[1], args[2])
     def list(self, iotas):
         return iotas
-    def null(self):
+    def null(self, _arguments):
         return hexast.Null()
+    def literal(self, numbers):
+        return numbers[0]
+    def unknown(self, arguments):
+        return arguments[0]
     def pattern(self, args):
         initial_direction, *maybe_turns = args
         turns = maybe_turns[0] if len(maybe_turns) > 0 else ""
