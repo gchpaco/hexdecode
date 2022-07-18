@@ -45,7 +45,7 @@ class Mask(Pattern):
 
 class Number(Pattern):
     def __init__(self, value):
-        super().__init__(f"number {str(value).rstrip('0').rstrip('.')}")
+        super().__init__(f"number {float(value):g}")
 
 class PatternOpener(Pattern):
     def postadjust(self, level: int) -> int:
