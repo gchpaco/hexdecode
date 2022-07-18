@@ -8,7 +8,7 @@ from hexast import massage_raw_pattern_list
 
 parser = argparse.ArgumentParser()
 parser.add_argument('registry', help="Pattern registry to use", type=open)
-parser.add_argument('translations', help="Translation table to use", type=open, default=None)
+parser.add_argument('translations', help="Translation table to use", type=open, default=None, nargs="?")
 parser.add_argument('--kubejs',
                     help="Use kubejs parser",
                     action='store_true')
@@ -34,7 +34,8 @@ if __name__ == "__main__":
     else:
         for line in fileinput.input(files=[], encoding="utf-8"):
             level = 0
-            for iota in massage_raw_pattern_list(revealparser.parse(line), pattern_registry):
-                level = iota.preadjust(level)
-                iota.print(level, args.highlight, translation_table)
-                level = iota.postadjust(level)
+            for pattern in revealparser.parse(line):
+                for iota in massage_raw_pattern_list(pattern, pattern_registry):
+                    level = iota.preadjust(level)
+                    iota.print(level, args.highlight, translation_table)
+                    level = iota.postadjust(level)
