@@ -11,3 +11,14 @@ then submit your patterns on stdin with
 ```
 $ echo 'gobbletygook goes here' | python hexdecode.py pattern_registry.json
 ```
+
+If you'd like the fanciful names rather than the internal ones, download https://github.com/gamma-delta/HexMod/blob/main/Common/src/main/resources/assets/hexcasting/lang/en_us.json (or whatever your preferred supported language is) and give it as the second argument:
+```
+$ echo 'gobbletygook goes here' | python hexdecode.py pattern_registry.json en_us.json
+```
+
+A useful thing if you're on a Mac:
+```
+$ pbpaste | python hexdecode.py pattern_registry.json en_us.json | pbcopy
+```
+This takes the clipboard, decodes it, and puts the result back onto the clipboard for pasting.
