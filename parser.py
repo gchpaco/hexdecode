@@ -125,7 +125,7 @@ class ToAST(Transformer):
         return hexast.Number(accumulator)
     def _parse_mask(self, starting_direction: Direction, pattern: str) -> str | None:
         if not pattern:
-            return "⁻"
+            return "-"
         directions = get_pattern_directions(starting_direction, pattern)
         flat_direction = starting_direction.rotated(Angle.LEFT) if pattern[0] == "a" else starting_direction
         mask = ""
@@ -136,7 +136,7 @@ class ToAST(Transformer):
                 continue
             angle = direction.angle_from(flat_direction)
             if angle == Angle.FORWARD:
-                mask += "⁻"
+                mask += "-"
                 continue
             if index >= len(directions) - 1:
                 return None

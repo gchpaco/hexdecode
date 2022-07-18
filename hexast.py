@@ -41,7 +41,7 @@ class UnknownPattern(Pattern):
 
 class Mask(Pattern):
     def __init__(self, mask):
-        super().__init__(f"mask {mask}")
+        super().__init__(f"bookkeeper {mask}")
 
 class Number(Pattern):
     def __init__(self, value):
