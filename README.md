@@ -1,4 +1,8 @@
-Needs Lark; `pip install lark` if you don't have it in whatever virtualenv this lives in.
+# Hex casting decoder
+
+From an original idea by [object Object] that has since ... metastasized.
+
+Needs Lark and nbtlib; `pip install lark` and `pip install nbtlib` if you don't have it in whatever virtualenv this lives in.
 
 To use, download the Java files
 https://github.com/gamma-delta/HexMod/blob/main/Common/src/main/java/at/petrak/hexcasting/common/casting/RegisterPatterns.java
