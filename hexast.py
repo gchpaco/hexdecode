@@ -3,12 +3,19 @@ class Iota:
         self._datum = datum
     def color(self) -> str:
         return ""
-    def print(self, level: int, highlight: bool):
-        indent = "  " * level
-        if highlight:
-            print(indent + self.color() + str(self._datum) + "\033[00m")
+    def lookup_spell(self, translation_table):
+        key = f"hexcasting.spell.hexcasting:{str(self._datum)}"
+        if key in translation_table:
+            return translation_table[key]
         else:
-            print(indent + str(self._datum))
+            return str(self._datum)
+    def print(self, level: int, highlight: bool, translation_table={}):
+        indent = "  " * level
+        datum_name = self.lookup_spell(translation_table)
+        if highlight:
+            print(indent + self.color() + datum_name + "\033[00m")
+        else:
+            print(indent + datum_name)
     def preadjust(self, level: int) -> int:
         return level
     def postadjust(self, level: int) -> int:
