@@ -1,6 +1,10 @@
 from enum import Enum
+import re
 import struct
 import uuid
+from sty import fg
+
+localize_regex = re.compile(r"((?:number|mask))(: .+)")
 
 class Iota:
     def __init__(self, datum):
@@ -11,16 +15,19 @@ class Iota:
         return str(self._datum)
     def localize(self, translation_table):
         presentation_name = self.presentation_name()
+        value = ""
+        if match := localize_regex.match(presentation_name):
+            (presentation_name, value) = match.groups()
         key = f"hexcasting.spell.hexcasting:{presentation_name}"
         if key in translation_table:
-            return translation_table[key]
+            return translation_table[key] + value
         else:
-            return presentation_name
+            return presentation_name + value
     def print(self, level: int, highlight: bool, translation_table={}):
         indent = "  " * level
         datum_name = self.localize(translation_table)
         if highlight:
-            print(indent + self.color() + datum_name + "\033[00m")
+            print(indent + self.color() + datum_name + fg.rs)
         else:
             print(indent + datum_name)
     def preadjust(self, level: int) -> int:
@@ -42,22 +49,26 @@ class ListCloser(Iota):
 
 class Pattern(Iota):
     def color(self):
-        return "\033[93m" # yellow
+        return fg.yellow
 
-class UnknownPattern(Pattern):
+class Unknown(Iota):
+    def color(self):
+        return fg(124) # red
+
+class UnknownPattern(Unknown):
     def __init__(self, initial_direction, turns):
         self._initial_direction = initial_direction
         super().__init__(turns)
     def presentation_name(self):
-        return f"unknown: {self._initial_direction} {self._datum}"
+        return f"unknown: {self._initial_direction.name} {self._datum}"
 
 class Bookkeeper(Pattern):
     def presentation_name(self):
-        return f"bookkeeper: {self._datum}"
+        return f"mask: {self._datum}"
 
 class Number(Pattern):
     def presentation_name(self):
-        return f"number {float(self._datum):g}"
+        return f"number: {float(self._datum):g}"
 
 class PatternOpener(Pattern):
     def presentation_name(self):
@@ -75,28 +86,26 @@ class NumberConstant(Iota):
     def str(self):
         return self._datum
     def color(self):
-        return "\033[92m" # light green
+        return fg.li_green
 
 class Vector(NumberConstant):
     def __init__(self, x, y, z):
         super().__init__(f"({x._datum}, {y._datum}, {z._datum})")
+    def color(self):
+        return fg(207) # pink
 
 class Entity(Iota):
     def __init__(self, uuid_bits):
         packed = struct.pack("iiii", *uuid_bits)
         super().__init__(uuid.UUID(bytes_le=packed))
     def color(self):
-        return "\033[92m" # light green
+        return fg.li_blue
 
 class Null(Iota):
     def __init__(self):
         super().__init__("NULL")
     def color(self):
-        return "\033[92m" # light green
-
-class Unknown(Iota):
-    def color(self):
-        return "\033[91m" # light red
+        return fg.magenta
 
 class Angle(Enum):
     FORWARD    = (0, "w")
