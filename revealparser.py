@@ -26,7 +26,7 @@ class ToAST(Transformer):
     def vector(self, args) -> hexast.Vector:
         return hexast.Vector(args[0], args[1], args[2])
     def list(self, iotas):
-        return iotas
+        return [i for i in iotas if i is not None]
     def null(self, _arguments):
         return hexast.Null()
     def literal(self, numbers):
