@@ -2,7 +2,7 @@
 
 From an original idea by https://github.com/object-Object that has since ... metastasized.
 
-Needs Lark and nbtlib; `pip install lark` and `pip install nbtlib` if you don't have it in whatever virtualenv this lives in.
+Needs some libraries: `pip install -r requirements.txt` should do.
 
 To use, download the Java files
 https://github.com/gamma-delta/HexMod/blob/main/Common/src/main/java/at/petrak/hexcasting/common/casting/RegisterPatterns.java
