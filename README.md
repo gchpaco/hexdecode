@@ -16,7 +16,7 @@ pip install -r requirements.txt
    * https://github.com/gamma-delta/HexMod/blob/main/Common/src/main/resources/assets/hexcasting/lang/en_us.json (or whatever your preferred language is)
 * Build the pattern registry:
 ```
-python buildpatterns.py *.java > pattern_registry.json
+python buildpatterns.py pattern_registry.json *.java
 ```
 
 # Usage
