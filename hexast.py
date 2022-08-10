@@ -1,10 +1,20 @@
+from __future__ import annotations
 from enum import Enum
+from itertools import pairwise
 import re
 import struct
+from typing import Iterable
 import uuid
 from sty import fg
+from dataclasses import dataclass, field
+from math import inf
 
 localize_regex = re.compile(r"((?:number|mask))(: .+)")
+
+@dataclass
+class PatternRegistry:
+    spells: dict[str, str] = field(default_factory=dict)
+    great_spells: dict[frozenset[Coord], str] = field(default_factory=dict)
 
 class Iota:
     def __init__(self, datum):
@@ -132,6 +142,87 @@ class Angle(Enum):
         self.ordinal = ordinal
         self.letter = letter
 
+
+# Uses axial coordinates as per https://www.redblobgames.com/grids/hexagons/ (same system as Hex)
+class Coord:
+    @classmethod
+    def origin(cls) -> Coord:
+        return Coord(0, 0)
+
+    def __init__(self, q: float, r: float) -> None:
+        self._q = q
+        self._r = r
+    
+    @property
+    def q(self):
+        return self._q
+    
+    @property
+    def r(self):
+        return self._r
+
+    @property
+    def s(self):
+        # Hex has this as q - r, but the rotation formulas from the above link don't seem to work with that
+        return -self.q - self.r
+    
+    def __hash__(self) -> int:
+        return hash((self.q, self.r))
+    
+    def __eq__(self, other: Coord) -> bool:
+        return (self.q, self.r) == (other.q, other.r)
+    
+    def __repr__(self) -> str:
+        return f"({self.q}, {self.r})"
+    
+    def __add__(self, other: Direction | Coord) -> Coord:
+        return self.shifted(other)
+    
+    def __sub__(self, other: Coord) -> Coord:
+        return self.delta(other)
+    
+    def shifted(self, other: Direction | Coord) -> Coord:
+        if isinstance(other, Direction):
+            other = other.as_delta()
+        return Coord(self.q + other.q, self.r + other.r)
+    
+    # rotates 60⁰ clockwise about the origin for each n
+    def rotated_cw(self, n=1) -> Coord:
+        rotated = self
+        for _ in range(n):
+            rotated = Coord(-rotated.r, -rotated.s)
+        return rotated
+    
+    # rotates 60⁰ counterclockwise about the origin for each n
+    def rotated_ccw(self, n=1) -> Coord:
+        rotated = self
+        for _ in range(n):
+            rotated = Coord(-rotated.s, -rotated.q)
+        return rotated
+    
+    def midpoint(self, other: Coord) -> Coord:
+        return Coord((self.q + other.q) / 2, (self.r + other.r) / 2)
+    
+    def delta(self, other: Coord) -> Coord:
+        return Coord(self.q - other.q, self.r - other.r)
+    
+    def immediate_delta(self, other: Coord) -> Direction | None:
+        match other.delta(self):
+            case Coord(q=1, r=0):
+                return Direction.EAST
+            case Coord(q=0, r=1):
+                return Direction.SOUTH_EAST
+            case Coord(q=-1, r=1):
+                return Direction.SOUTH_WEST
+            case Coord(q=-1, r=0):
+                return Direction.WEST
+            case Coord(q=0, r=-1):
+                return Direction.NORTH_WEST
+            case Coord(q=1, r=-1):
+                return Direction.NORTH_EAST
+            case _:
+                return None
+
 class Direction(Enum): # numbers increase clockwise
     NORTH_EAST = 0
     EAST       = 1
@@ -146,6 +237,24 @@ class Direction(Enum): # numbers increase clockwise
     def rotated(self, angle):
         offset = Angle[angle].offset() if type(angle) is str else angle.offset()
         return Direction((self.value + offset) % len(Direction))
+    
+    def __mul__(self, angle: Angle) -> Direction:
+        return self.rotated(angle)
+    
+    def as_delta(self) -> Coord:
+        match self:
+            case Direction.NORTH_EAST:
+                return Coord(1, -1)
+            case Direction.EAST:
+                return Coord(1, 0)
+            case Direction.SOUTH_EAST:
+                return Coord(0, 1)
+            case Direction.SOUTH_WEST:
+                return Coord(-1, 1)
+            case Direction.WEST:
+                return Coord(-1, 0)
+            case Direction.NORTH_WEST:
+                return Coord(0, -1)
 
 def _parse_number(pattern):
     negate = pattern.startswith("dedd")
@@ -197,7 +306,52 @@ def _parse_bookkeeper(starting_direction, pattern):
         return None
     return mask
 
-def massage_raw_pattern_list(pattern, registry):
+def _get_points(direction: Direction, pattern: str) -> tuple[Coord]:
+    compass = direction
+    cursor = compass.as_delta()
+
+    points = [Coord.origin(), cursor]
+
+    for c in pattern:
+        compass = compass.rotated(Angle[c])
+        cursor += compass
+        points.append(cursor)
+
+    return tuple(points)
+
+def _centre_points_at_origin(points: Iterable[Coord]) -> frozenset[Coord]:
+    min_q, max_q = inf, -inf
+    min_r, max_r = inf, -inf
+    for point in points:
+        min_q, max_q = min(point.q, min_q), max(point.q, max_q)
+        min_r, max_r = min(point.r, min_r), max(point.r, max_r)
+
+    middle = Coord((min_q + max_q) / 2, (min_r + max_r) / 2)
+    delta = Coord.origin() - middle
+    return frozenset([p + delta for p in points])
+
+def _get_line_midpoints(direction: Direction, pattern: str, centre=True) -> frozenset[Coord]:
+    points = _get_points(direction, pattern)
+    midpoints = [a.midpoint(b) for a, b in pairwise(points)]
+    if centre:
+        return _centre_points_at_origin(midpoints)
+    return frozenset(midpoints)
+
+def get_rotated_line_midpoints(direction: Direction, pattern: str):
+    midpoints = _get_line_midpoints(direction, pattern, False)
+    for n in range(6):
+        yield _centre_points_at_origin([p.rotated_cw(n) for p in midpoints])
+
+def _handle_named_pattern(name: str):
+    match name:
+        case "open_paren":
+            return PatternOpener("open_paren")
+        case "close_paren":
+            return PatternCloser("close_paren")
+        case _:
+            return Pattern(name)
+
+def massage_raw_pattern_list(pattern, registry: PatternRegistry):
     match pattern:
         case [*subpatterns]:
             yield ListOpener("[")
@@ -205,20 +359,18 @@ def massage_raw_pattern_list(pattern, registry):
                 yield from massage_raw_pattern_list(subpattern, registry)
             yield ListCloser("]")
         case UnknownPattern():
-            if name := registry.get(pattern._datum):
-                match name:
-                    case "open_paren":
-                        yield PatternOpener("open_paren")
-                    case "close_paren":
-                        yield PatternCloser("close_paren")
-                    case _:
-                        yield Pattern(name)
+            if name := registry.spells.get(pattern._datum):
+                yield _handle_named_pattern(name)
             elif bk := _parse_bookkeeper(pattern._initial_direction,
                                          pattern._datum):
                 yield Bookkeeper(bk)
             elif pattern._datum.startswith(("aqaa", "dedd")):
                 yield _parse_number(pattern._datum)
             else:
-                yield pattern
+                midpoints = _get_line_midpoints(pattern._initial_direction, pattern._datum)
+                if name := registry.great_spells.get(midpoints):
+                    yield _handle_named_pattern(name)
+                else:
+                    yield pattern
         case other:
             yield other

@@ -3,11 +3,12 @@ import revealparser
 import kjsparser
 import argparse
 import json
+import pickle
 import fileinput
-from hexast import massage_raw_pattern_list
+from hexast import massage_raw_pattern_list, PatternRegistry
 
 parser = argparse.ArgumentParser()
-parser.add_argument('registry', help="Pattern registry to use", type=open)
+parser.add_argument('registry', help="Pattern registry to use", type=argparse.FileType("rb"))
 parser.add_argument('translations', help="Translation table to use", type=open, default=None, nargs="?")
 parser.add_argument('--kubejs',
                     help="Use kubejs parser",
@@ -19,7 +20,7 @@ parser.add_argument('--highlight',
 if __name__ == "__main__":
     args = parser.parse_args()
 
-    pattern_registry = json.load(args.registry)
+    registry: PatternRegistry = pickle.load(args.registry)
     translation_table = json.load(args.translations) if args.translations else {}
 
     if args.kubejs:
@@ -27,7 +28,7 @@ if __name__ == "__main__":
             for page_name, iotas in kjsparser.parse(line):
                 print("===", page_name, "===")
                 level = 0
-                for iota in massage_raw_pattern_list(iotas, pattern_registry):
+                for iota in massage_raw_pattern_list(iotas, registry):
                     level = iota.preadjust(level)
                     iota.print(level, args.highlight, translation_table)
                     level = iota.postadjust(level)
@@ -35,7 +36,7 @@ if __name__ == "__main__":
         for line in fileinput.input(files=[], encoding="utf-8"):
             level = 0
             for pattern in revealparser.parse(line):
-                for iota in massage_raw_pattern_list(pattern, pattern_registry):
+                for iota in massage_raw_pattern_list(pattern, registry):
                     level = iota.preadjust(level)
                     iota.print(level, args.highlight, translation_table)
                     level = iota.postadjust(level)
