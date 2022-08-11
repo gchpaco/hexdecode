@@ -2,7 +2,7 @@ import re
 import pickle
 import sys
 import glob
-from hexast import Direction, get_rotated_line_midpoints, PatternRegistry
+from hexast import Direction, get_rotated_pattern_segments, PatternRegistry
 
 # working as of https://github.com/gamma-delta/HexMod/blob/c00815b7b9d90593dc33e3a7539ce87c2ece4fc9/Common/src/main/java/at/petrak/hexcasting/common/casting/RegisterPatterns.java
 # - go to https://github.com/gamma-delta/HexMod/blob/main/Common/src/main/java/at/petrak/hexcasting/common/casting/RegisterPatterns.java
@@ -20,8 +20,8 @@ for path in sys.argv[2:]:
             for match in registry_regex.finditer(file.read()):
                 (pattern, direction, name, is_great) = match.groups()
                 if is_great:
-                    for points in get_rotated_line_midpoints(Direction[direction], pattern):
-                        registry.great_spells[points] = name
+                    for segments in get_rotated_pattern_segments(Direction[direction], pattern):
+                        registry.great_spells[segments] = name
                 else:
                     registry.spells[pattern] = name
 
