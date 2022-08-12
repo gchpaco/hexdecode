@@ -47,6 +47,7 @@ def parse(text):
         object_end = text.rfind('"')
         object = text[object_start+1:object_end]
         object = object.replace('\\"', '"')
+        object = object.replace('\\\\', '\\')
         nbt = nbtlib.parse_nbt(object)
     else:
         whole = nbtlib.parse_nbt(text)
