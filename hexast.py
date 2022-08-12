@@ -1,10 +1,20 @@
+from __future__ import annotations
 from enum import Enum
+from itertools import pairwise
 import re
 import struct
+from typing import Generator, Iterable
 import uuid
 from sty import fg
+from dataclasses import dataclass, field
+from math import inf
 
 localize_regex = re.compile(r"((?:number|mask))(: .+)")
+
+@dataclass
+class PatternRegistry:
+    spells: dict[str, str] = field(default_factory=dict)
+    great_spells: dict[frozenset[Segment], str] = field(default_factory=dict)
 
 class Iota:
     def __init__(self, datum):
@@ -123,14 +133,98 @@ class Angle(Enum):
     @classmethod
     def from_number(cls, num):
         return {0: cls.FORWARD, 1: cls.RIGHT, 2: cls.RIGHT_BACK,
-           3: cls.BACK, 4: cls.LEFT_BACK, 5: cls.LEFT}[num]
+           3: cls.BACK, 4: cls.LEFT_BACK, 5: cls.LEFT}[num % len(Angle)]
 
-    def offset(self):
+    @classmethod
+    def get_offset(cls, angle: Angle | str | int) -> int:
+        match angle:
+            case Angle():
+                return angle.offset
+            case str():
+                return Angle[angle].offset
+            case int():
+                return Angle.from_number(angle).offset
+
+    @property
+    def offset(self) -> int:
         return self.value[0]
 
     def __init__(self, ordinal, letter):
         self.ordinal = ordinal
         self.letter = letter
+
+
+# Uses axial coordinates as per https://www.redblobgames.com/grids/hexagons/ (same system as Hex)
+class Coord:
+    @classmethod
+    def origin(cls) -> Coord:
+        return Coord(0, 0)
+
+    def __init__(self, q: int, r: int) -> None:
+        self._q = q
+        self._r = r
+    
+    @property
+    def q(self):
+        return self._q
+    
+    @property
+    def r(self):
+        return self._r
+
+    @property
+    def s(self):
+        # Hex has this as q - r, but the rotation formulas from the above link don't seem to work with that
+        return -self.q - self.r
+    
+    def __hash__(self) -> int:
+        return hash((self.q, self.r))
+    
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, Coord):
+            return (self.q, self.r) == (other.q, other.r)
+        return NotImplemented
+    
+    def __repr__(self) -> str:
+        return f"({self.q}, {self.r})"
+    
+    def __add__(self, other: Direction | Coord) -> Coord:
+        return self.shifted(other)
+    
+    def __sub__(self, other: Coord) -> Coord:
+        return self.delta(other)
+    
+    def shifted(self, other: Direction | Coord) -> Coord:
+        if isinstance(other, Direction):
+            other = other.as_delta()
+        return Coord(self.q + other.q, self.r + other.r)
+    
+    def rotated(self, angle: Angle | str | int) -> Coord:
+        offset = Angle.get_offset(angle)
+        rotated = self
+        for _ in range(abs(offset)):
+            rotated = Coord(-rotated.r, -rotated.s)
+        return rotated
+    
+    def delta(self, other: Coord) -> Coord:
+        return Coord(self.q - other.q, self.r - other.r)
+    
+    def immediate_delta(self, other: Coord) -> Direction | None:
+        match other.delta(self):
+            case Coord(q=1, r=0):
+                return Direction.EAST
+            case Coord(q=0, r=1):
+                return Direction.SOUTH_EAST
+            case Coord(q=-1, r=1):
+                return Direction.SOUTH_WEST
+            case Coord(q=-1, r=0):
+                return Direction.WEST
+            case Coord(q=0, r=-1):
+                return Direction.NORTH_WEST
+            case Coord(q=1, r=-1):
+                return Direction.NORTH_EAST
+            case _:
+                return None
 
 class Direction(Enum): # numbers increase clockwise
     NORTH_EAST = 0
@@ -140,12 +234,33 @@ class Direction(Enum): # numbers increase clockwise
     WEST       = 4
     NORTH_WEST = 5
 
-    def angle_from(self, other):
+    @property
+    def side(self):
+        return "WEST" if self in [Direction.NORTH_WEST, Direction.WEST, Direction.SOUTH_WEST] else "EAST"
+
+    def angle_from(self, other: Direction) -> Angle:
         return Angle.from_number((self.value - other.value) % len(Angle))
 
-    def rotated(self, angle):
-        offset = Angle[angle].offset() if type(angle) is str else angle.offset()
-        return Direction((self.value + offset) % len(Direction))
+    def rotated(self, angle: Angle | str | int) -> Direction:
+        return Direction((self.value + Angle.get_offset(angle)) % len(Direction))
+    
+    def __mul__(self, angle: Angle) -> Direction:
+        return self.rotated(angle)
+    
+    def as_delta(self) -> Coord:
+        match self:
+            case Direction.NORTH_EAST:
+                return Coord(1, -1)
+            case Direction.EAST:
+                return Coord(1, 0)
+            case Direction.SOUTH_EAST:
+                return Coord(0, 1)
+            case Direction.SOUTH_WEST:
+                return Coord(-1, 1)
+            case Direction.WEST:
+                return Coord(-1, 0)
+            case Direction.NORTH_WEST:
+                return Coord(0, -1)
 
 def _parse_number(pattern):
     negate = pattern.startswith("dedd")
@@ -166,6 +281,61 @@ def _parse_number(pattern):
         accumulator = -accumulator
     return Number(accumulator)
 
+class Segment:
+    def __init__(self, root: Coord, direction: Direction):
+        # because otherwise there's two ways to represent any given line
+        if direction.side == "EAST":
+            self._root = root
+            self._direction = direction
+        else:
+            self._root = root + direction
+            self._direction = direction.rotated(Angle.BACK)
+    
+    def __hash__(self) -> int:
+        return hash((self.root, self.direction))
+    
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, Segment):
+            return (self.root, self.direction) == (other.root, other.direction)
+        return NotImplemented
+    
+    def __repr__(self) -> str:
+        return f"{self.root}@{self.direction}"
+    
+    @property
+    def root(self):
+        return self._root
+
+    @property
+    def direction(self):
+        return self._direction
+    
+    @property
+    def end(self):
+        return self.root + self.direction
+    
+    @property
+    def min_q(self):
+        return min(self.root.q, self.end.q)
+    
+    @property
+    def max_q(self):
+        return max(self.root.q, self.end.q)
+
+    @property
+    def min_r(self):
+        return min(self.root.r, self.end.r)
+    
+    @property
+    def max_r(self):
+        return max(self.root.r, self.end.r)
+    
+    def shifted(self, other: Direction | Coord) -> Segment:
+        return Segment(self.root.shifted(other), self.direction)
+
+    def rotated(self, angle: Angle | str | int) -> Segment:
+        return Segment(self.root.rotated(angle), self.direction.rotated(angle))
+    
 def _get_pattern_directions(starting_direction, pattern):
     directions = [starting_direction]
     for c in pattern:
@@ -197,7 +367,47 @@ def _parse_bookkeeper(starting_direction, pattern):
         return None
     return mask
 
-def massage_raw_pattern_list(pattern, registry):
+def _get_segments(direction: Direction, pattern: str) -> frozenset[Segment]:
+    cursor = Coord.origin()
+    compass = direction
+
+    segments = [Segment(cursor, compass)]
+
+    for c in pattern:
+        cursor += compass
+        compass = compass.rotated(Angle[c])
+        segments.append(Segment(cursor, compass))
+
+    return frozenset(segments)
+
+def _align_segments_to_origin(segments: Iterable[Segment]) -> frozenset[Segment]:
+    min_q = min(segment.min_q for segment in segments)
+    min_r = min(segment.min_r for segment in segments)
+
+    top_left = Coord(min_q, min_r)
+    delta = Coord.origin() - top_left
+
+    return frozenset([segment.shifted(delta) for segment in segments])
+
+def _get_pattern_segments(direction: Direction, pattern: str, align=True) -> frozenset[Segment]:
+    segments = _get_segments(direction, pattern)
+    return _align_segments_to_origin(segments) if align else segments
+
+def get_rotated_pattern_segments(direction: Direction, pattern: str) -> Generator[frozenset[Segment], None, None]:
+    segments = _get_pattern_segments(direction, pattern, False)
+    for n in range(6):
+        yield _align_segments_to_origin([segment.rotated(n) for segment in segments])
+
+def _handle_named_pattern(name: str):
+    match name:
+        case "open_paren":
+            return PatternOpener("open_paren")
+        case "close_paren":
+            return PatternCloser("close_paren")
+        case _:
+            return Pattern(name)
+
+def massage_raw_pattern_list(pattern, registry: PatternRegistry):
     match pattern:
         case [*subpatterns]:
             yield ListOpener("[")
@@ -205,20 +415,18 @@ def massage_raw_pattern_list(pattern, registry):
                 yield from massage_raw_pattern_list(subpattern, registry)
             yield ListCloser("]")
         case UnknownPattern():
-            if name := registry.get(pattern._datum):
-                match name:
-                    case "open_paren":
-                        yield PatternOpener("open_paren")
-                    case "close_paren":
-                        yield PatternCloser("close_paren")
-                    case _:
-                        yield Pattern(name)
+            if name := registry.spells.get(pattern._datum):
+                yield _handle_named_pattern(name)
             elif bk := _parse_bookkeeper(pattern._initial_direction,
                                          pattern._datum):
                 yield Bookkeeper(bk)
             elif pattern._datum.startswith(("aqaa", "dedd")):
                 yield _parse_number(pattern._datum)
             else:
-                yield pattern
+                segments = _get_pattern_segments(pattern._initial_direction, pattern._datum)
+                if name := registry.great_spells.get(segments):
+                    yield _handle_named_pattern(name)
+                else:
+                    yield pattern
         case other:
             yield other

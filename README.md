@@ -16,7 +16,7 @@ pip install -r requirements.txt
    * https://github.com/gamma-delta/HexMod/blob/main/Common/src/main/resources/assets/hexcasting/lang/en_us.json (or whatever your preferred language is)
 * Build the pattern registry:
 ```
-python buildpatterns.py pattern_registry.json *.java
+python buildpatterns.py pattern_registry.pickle *.java
 ```
 
 # Usage
@@ -24,17 +24,17 @@ python buildpatterns.py pattern_registry.json *.java
 * Open `.minecraft/logs/latest.log`, find the Reveal output, and copy it (should look like `[HexPattern(NORTH_EAST qaq)]`).
 * Open a terminal in the repository folder and submit your hex:
 ```
-echo "paste your hex here" | python hexdecode.py pattern_registry.json
+echo "paste your hex here" | python hexdecode.py pattern_registry.pickle
 ```
 * If you'd like the fanciful names rather than the internal ones, do this instead:
 ```
-echo "paste your hex here" | python hexdecode.py pattern_registry.json en_us.json
+echo "paste your hex here" | python hexdecode.py pattern_registry.pickle en_us.json
 ```
 * To get syntax highlighting:
 ```
-echo "paste your hex here" | python hexdecode.py pattern_registry.json en_us.json --highlight
+echo "paste your hex here" | python hexdecode.py pattern_registry.pickle en_us.json --highlight
 ```
 * Here's a useful thing if you're on a Mac. This takes the clipboard, decodes it, and puts the result back onto the clipboard for pasting:
 ```
-pbpaste | python hexdecode.py pattern_registry.json en_us.json | pbcopy
+pbpaste | python hexdecode.py pattern_registry.pickle en_us.json | pbcopy
 ```
