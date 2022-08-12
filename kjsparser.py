@@ -30,6 +30,10 @@ def _parse_spellbook(nbt):
         name = nbt['page_names'].get(page, "(unnamed)")
         spell = _parse_stanza(contents)
         yield name, spell
+def _parse_trinket(nbt):
+    name = nbt['display'].get('Name', "(unnamed)")
+    spell = [_parse_stanza(pattern) for pattern in nbt['patterns']]
+    yield name, spell
 
 def parse(text):
     text = text.strip()
@@ -52,5 +56,7 @@ def parse(text):
     match type:
         case "hexcasting:spellbook":
             yield from _parse_spellbook(nbt)
+        case "hexcasting:trinket":
+            yield from _parse_trinket(nbt)
         case other:
             raise RuntimeError(f"Dunno how to handle objects like {other}")
