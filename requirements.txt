@@ -2,3 +2,4 @@ lark==1.1.2
 nbtlib==2.0.4
 numpy==1.23.1
 sty==1.0.4
+pyinstaller==5.3
