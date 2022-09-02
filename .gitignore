@@ -1,4 +1,10 @@
 *.java
 *.json
 *.pickle
-__pycache__
+__pycache__/
+dist/
+build/
+.vscode/
+
+# allows multiple venv files, eg. venv_win/
+venv*/

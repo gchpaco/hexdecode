@@ -6,10 +6,15 @@ import json
 import pickle
 import fileinput
 from hexast import massage_raw_pattern_list, PatternRegistry
+import signal
+import sys
+
+# don't show KeyboardInterrupt traceback on ctrl+c
+signal.signal(signal.SIGINT, lambda a, b: sys.exit(1))
 
 parser = argparse.ArgumentParser()
-parser.add_argument('registry', help="Pattern registry to use", type=argparse.FileType("rb"))
-parser.add_argument('translations', help="Translation table to use", type=open, default=None, nargs="?")
+parser.add_argument('registry', help="Pattern registry to use")
+parser.add_argument('translations', help="Translation table to use", default=None, nargs="?")
 parser.add_argument('--kubejs',
                     help="Use kubejs parser",
                     action='store_true')
@@ -20,8 +25,14 @@ parser.add_argument('--highlight',
 if __name__ == "__main__":
     args = parser.parse_args()
 
-    registry: PatternRegistry = pickle.load(args.registry)
-    translation_table = json.load(args.translations) if args.translations else {}
+    with open(args.registry, "rb") as file:
+        registry: PatternRegistry = pickle.load(file)
+
+    if args.translations:
+        with open(args.translations, "r") as file:
+            translation_table = json.load(file)
+    else:
+        translation_table = {}
 
     if args.kubejs:
         for line in fileinput.input(files=[], encoding="utf-8"):
