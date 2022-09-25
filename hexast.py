@@ -407,7 +407,7 @@ def _handle_named_pattern(name: str):
         case _:
             return Pattern(name)
 
-def massage_raw_pattern_list(pattern, registry: PatternRegistry):
+def massage_raw_pattern_list(pattern, registry: PatternRegistry) -> Generator[Iota, None, None]:
     match pattern:
         case [*subpatterns]:
             yield ListOpener("[")
@@ -415,7 +415,9 @@ def massage_raw_pattern_list(pattern, registry: PatternRegistry):
                 yield from massage_raw_pattern_list(subpattern, registry)
             yield ListCloser("]")
         case UnknownPattern():
-            if name := registry.spells.get(pattern._datum):
+            if ((name := registry.spells.get(pattern._datum)) or
+                    (segments := _get_pattern_segments(pattern._initial_direction, pattern._datum)) and
+                    (name := registry.great_spells.get(segments))):
                 yield _handle_named_pattern(name)
             elif bk := _parse_bookkeeper(pattern._initial_direction,
                                          pattern._datum):
@@ -423,10 +425,6 @@ def massage_raw_pattern_list(pattern, registry: PatternRegistry):
             elif pattern._datum.startswith(("aqaa", "dedd")):
                 yield _parse_number(pattern._datum)
             else:
-                segments = _get_pattern_segments(pattern._initial_direction, pattern._datum)
-                if name := registry.great_spells.get(segments):
-                    yield _handle_named_pattern(name)
-                else:
-                    yield pattern
+                yield pattern
         case other:
             yield other
