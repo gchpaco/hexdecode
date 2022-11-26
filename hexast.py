@@ -163,11 +163,11 @@ class Coord:
     def __init__(self, q: int, r: int) -> None:
         self._q = q
         self._r = r
-    
+
     @property
     def q(self):
         return self._q
-    
+
     @property
     def r(self):
         return self._r
@@ -176,39 +176,39 @@ class Coord:
     def s(self):
         # Hex has this as q - r, but the rotation formulas from the above link don't seem to work with that
         return -self.q - self.r
-    
+
     def __hash__(self) -> int:
         return hash((self.q, self.r))
-    
+
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Coord):
             return (self.q, self.r) == (other.q, other.r)
         return NotImplemented
-    
+
     def __repr__(self) -> str:
         return f"({self.q}, {self.r})"
-    
+
     def __add__(self, other: Direction | Coord) -> Coord:
         return self.shifted(other)
-    
+
     def __sub__(self, other: Coord) -> Coord:
         return self.delta(other)
-    
+
     def shifted(self, other: Direction | Coord) -> Coord:
         if isinstance(other, Direction):
             other = other.as_delta()
         return Coord(self.q + other.q, self.r + other.r)
-    
+
     def rotated(self, angle: Angle | str | int) -> Coord:
         offset = Angle.get_offset(angle)
         rotated = self
         for _ in range(abs(offset)):
             rotated = Coord(-rotated.r, -rotated.s)
         return rotated
-    
+
     def delta(self, other: Coord) -> Coord:
         return Coord(self.q - other.q, self.r - other.r)
-    
+
     def immediate_delta(self, other: Coord) -> Direction | None:
         match other.delta(self):
             case Coord(q=1, r=0):
@@ -243,10 +243,10 @@ class Direction(Enum): # numbers increase clockwise
 
     def rotated(self, angle: Angle | str | int) -> Direction:
         return Direction((self.value + Angle.get_offset(angle)) % len(Direction))
-    
+
     def __mul__(self, angle: Angle) -> Direction:
         return self.rotated(angle)
-    
+
     def as_delta(self) -> Coord:
         match self:
             case Direction.NORTH_EAST:
@@ -290,18 +290,18 @@ class Segment:
         else:
             self._root = root + direction
             self._direction = direction.rotated(Angle.BACK)
-    
+
     def __hash__(self) -> int:
         return hash((self.root, self.direction))
-    
+
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Segment):
             return (self.root, self.direction) == (other.root, other.direction)
         return NotImplemented
-    
+
     def __repr__(self) -> str:
         return f"{self.root}@{self.direction}"
-    
+
     @property
     def root(self):
         return self._root
@@ -309,15 +309,15 @@ class Segment:
     @property
     def direction(self):
         return self._direction
-    
+
     @property
     def end(self):
         return self.root + self.direction
-    
+
     @property
     def min_q(self):
         return min(self.root.q, self.end.q)
-    
+
     @property
     def max_q(self):
         return max(self.root.q, self.end.q)
@@ -325,17 +325,17 @@ class Segment:
     @property
     def min_r(self):
         return min(self.root.r, self.end.r)
-    
+
     @property
     def max_r(self):
         return max(self.root.r, self.end.r)
-    
+
     def shifted(self, other: Direction | Coord) -> Segment:
         return Segment(self.root.shifted(other), self.direction)
 
     def rotated(self, angle: Angle | str | int) -> Segment:
         return Segment(self.root.rotated(angle), self.direction.rotated(angle))
-    
+
 def _get_pattern_directions(starting_direction, pattern):
     directions = [starting_direction]
     for c in pattern:
@@ -419,6 +419,10 @@ def massage_raw_pattern_list(pattern, registry: PatternRegistry) -> Generator[Io
                     (segments := _get_pattern_segments(pattern._initial_direction, pattern._datum)) and
                     (name := registry.great_spells.get(segments))):
                 yield _handle_named_pattern(name)
+            elif pattern._datum == "qqq":
+                yield _handle_named_pattern("open_paren")
+            elif pattern._datum == "eee":
+                yield _handle_named_pattern("close_paren")
             elif bk := _parse_bookkeeper(pattern._initial_direction,
                                          pattern._datum):
                 yield Bookkeeper(bk)
