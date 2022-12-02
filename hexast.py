@@ -80,6 +80,10 @@ class Number(Pattern):
     def presentation_name(self):
         return f"number: {float(self._datum):g}"
 
+class Boolean(Pattern):
+    def presentation_name(self):
+        return f"boolean: {self._datum}"
+
 class PatternOpener(Pattern):
     def presentation_name(self):
         return "{"
@@ -93,6 +97,12 @@ class PatternCloser(Pattern):
         return level - 1
 
 class NumberConstant(Iota):
+    def str(self):
+        return self._datum
+    def color(self):
+        return fg.li_green
+
+class BooleanConstant(Iota):
     def str(self):
         return self._datum
     def color(self):
@@ -423,6 +433,8 @@ def massage_raw_pattern_list(pattern, registry: PatternRegistry) -> Generator[Io
                 yield _handle_named_pattern("open_paren")
             elif pattern._datum == "eee":
                 yield _handle_named_pattern("close_paren")
+            elif pattern._datum == "qqqaw":
+                yield _handle_named_pattern("escape")
             elif bk := _parse_bookkeeper(pattern._initial_direction,
                                          pattern._datum):
                 yield Bookkeeper(bk)

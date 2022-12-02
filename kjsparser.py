@@ -1,12 +1,34 @@
 from __future__ import annotations
 import nbtlib
 import struct
-from hexast import Direction, Angle, UnknownPattern, Vector, NumberConstant, Entity, Null
+from hexast import Direction, Angle, UnknownPattern, Vector, NumberConstant, Entity, Null, BooleanConstant
 
 def _repack_vec3s(vector):
     args = [NumberConstant(struct.unpack("d", struct.pack("q", element.unpack()))[0])
             for element in vector]
     return Vector(*args)
+def _parse_type(type, data):
+    match type:
+        case 'hexcasting:pattern':
+            start_dir = Direction(data['start_dir'].unpack())
+            angles = ''.join([Angle.from_number(angle.unpack()).letter for angle in data['angles']])
+            return UnknownPattern(start_dir, angles)
+        case 'hexcasting:list':
+            return [_parse_stanza(element) for element in data]
+        case 'hexcasting:null':
+            return Null()
+        case 'hexcasting:entity':
+            return Entity(data['uuid'])
+        case 'hexcasting:vec3':
+            return _repack_vec3s(data)
+        case 'hexcasting:double':
+            return NumberConstant(data.unpack())
+        case 'hexcasting:boolean':
+            return BooleanConstant(data.unpack())
+        case 'hexcasting:garbage':
+            return Null()
+        case _:
+            raise RuntimeError(f"Not sure what to do with {type}, {data}")
 def _parse_stanza(stanza):
     match stanza:
         case {'pattern': pattern}:
@@ -23,6 +45,8 @@ def _parse_stanza(stanza):
             return _repack_vec3s(array)
         case {'double': double}:
             return NumberConstant(double.unpack())
+        case {'hexcasting:type': type, 'hexcasting:data': data}:
+            return _parse_type(type, data)
         case _:
             raise RuntimeError(f"Not sure what to do with {stanza}")
 def _parse_spellbook(nbt):

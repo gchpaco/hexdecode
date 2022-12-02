@@ -11,10 +11,12 @@ iota: "[" [iota ("," iota)*] "]"                -> list
     | "HexPattern" "(" ( DIRECTION TURNS? ) ")" -> pattern
     | "NULL"                                    -> null
     | NUMBER                                    -> literal
+    | BOOLEAN                                   -> literal
     | UNKNOWN                                   -> unknown
 
 TURNS: ("a"|"q"|"w"|"e"|"d")+
 UNKNOWN: DIRECTION
+BOOLEAN: "True" | "False"
 
 %import common.CNAME -> DIRECTION
 %import common.SIGNED_FLOAT -> NUMBER
@@ -37,6 +39,14 @@ class ToAST(Transformer):
         initial_direction, *maybe_turns = args
         turns = maybe_turns[0] if len(maybe_turns) > 0 else ""
         return hexast.UnknownPattern(initial_direction, turns)
+    def BOOLEAN(self, strings):
+        s = ''.join(strings)
+        if s == "True":
+            return hexast.BooleanConstant(True)
+        elif s == "False":
+            return hexast.BooleanConstant(False)
+        else:
+            return hexast.Unknown(s)
     def DIRECTION(self, string):
         return hexast.Direction[string]
     def UNKNOWN(self, strings):
